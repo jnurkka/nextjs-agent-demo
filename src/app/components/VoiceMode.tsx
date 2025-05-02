@@ -29,9 +29,10 @@ export default function VoiceMode({ onExit, onMessage }: VoiceModeProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const [autoMode, setAutoMode] = useState(true);
-  const audioLevelThreshold = 0.08;
+  const audioLevelThreshold = 0.10;
   const silenceDurationMs = 900;
-  // VAD-driven turn-taking
+  const minSpeakingDurationMs = 250;
+  const speakingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [speaking, setSpeaking] = useState(false);
   const prevSpeakingRef = useRef(false);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -61,7 +62,7 @@ export default function VoiceMode({ onExit, onMessage }: VoiceModeProps) {
     let animationFrame: number | null = null;
     let source: MediaStreamAudioSourceNode | null = null;
     let stopped = false;
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true } }).then((stream) => {
       mediaStream = stream;
       const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       audioContext = new AudioContextClass();
@@ -101,7 +102,7 @@ export default function VoiceMode({ onExit, onMessage }: VoiceModeProps) {
       return;
     }
     // Start a new MediaRecorder for the utterance
-    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true } }).then((stream) => {
       const recorder = new MediaRecorder(stream);
       audioChunksRef.current = [];
       recorder.ondataavailable = (e) => {
@@ -201,29 +202,37 @@ export default function VoiceMode({ onExit, onMessage }: VoiceModeProps) {
     };
   }, [isRecording, language, messages, onMessage]);
 
-  // VAD-driven turn-taking
+  // VAD-driven turn-taking with min duration above threshold
   useEffect(() => {
     if (!autoMode) {
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
       }
+      if (speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+        speakingTimeoutRef.current = null;
+      }
       return;
     }
-    console.log('[VAD] volume:', volume, 'speaking:', speaking);
     if (volume > audioLevelThreshold) {
-      if (!speaking) console.log('[VAD] speaking set to true');
-      setSpeaking(true);
+      if (!speaking && !speakingTimeoutRef.current) {
+        speakingTimeoutRef.current = setTimeout(() => {
+          setSpeaking(true);
+          speakingTimeoutRef.current = null;
+        }, minSpeakingDurationMs);
+      }
       if (silenceTimeoutRef.current) {
-        console.log('[VAD] clearing silence timeout');
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
       }
     } else {
+      if (speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+        speakingTimeoutRef.current = null;
+      }
       if (speaking && !silenceTimeoutRef.current) {
-        console.log('[VAD] setting silence timeout');
         silenceTimeoutRef.current = setTimeout(() => {
-          console.log('[VAD] silence timeout fired, speaking set to false');
           setSpeaking(false);
           silenceTimeoutRef.current = null;
         }, silenceDurationMs);
@@ -232,9 +241,12 @@ export default function VoiceMode({ onExit, onMessage }: VoiceModeProps) {
     // Only clean up on unmount or autoMode change
     return () => {
       if (!autoMode && silenceTimeoutRef.current) {
-        console.log('[VAD] cleaning up silence timeout');
         clearTimeout(silenceTimeoutRef.current);
         silenceTimeoutRef.current = null;
+      }
+      if (!autoMode && speakingTimeoutRef.current) {
+        clearTimeout(speakingTimeoutRef.current);
+        speakingTimeoutRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
