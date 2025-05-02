@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #6a11cb;
+  --foreground: #ffffff;
 }
 
 @theme inline {
@@ -14,13 +14,16 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #1a044e;
     --foreground: #ededed;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  @apply bg-gradient-to-br from-[#6a11cb] to-[#2575fc] min-h-screen min-w-screen;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.glass {
+  @apply bg-white/10 backdrop-blur-md;
 }
