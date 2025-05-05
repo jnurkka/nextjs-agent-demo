@@ -1,36 +1,25 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import VoiceMode from './components/VoiceMode';
 
 export default function ChatPage() {
   const { messages, input, handleInputChange, handleSubmit, status } = useChat({ api: '/api/chat' });
   const [voiceMode, setVoiceMode] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
 
   // Always show the first AI message if the chat is empty
-  const displayMessages = chatMessages.length === 0
+  const displayMessages = messages.length === 0
     ? [{ id: 'welcome', role: 'assistant', parts: [{ type: 'text', text: 'How can I help you today?' }] }]
-    : chatMessages;
+    : messages;
 
-  // Add new message to chat log (from text or voice)
-  const handleNewMessage = (msg) => {
-    setChatMessages((prev) => [
-      ...prev,
-      typeof msg === 'string'
-        ? { id: Date.now().toString(), role: 'user', parts: [{ type: 'text', text: msg }] }
-        : msg
-    ]);
-  };
-
-  // When sending a text message, also update chatMessages
-  const handleFormSubmit = (e) => {
+  // When sending a text message, submit via SDK
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    handleNewMessage(input);
+    handleInputChange({ target: { value: input } } as React.ChangeEvent<HTMLInputElement>);
     handleSubmit(e);
-  };
+  }, [input, handleInputChange, handleSubmit]);
 
   return (
     <div className="min-h-screen min-w-screen flex items-center justify-center bg-gradient-to-br from-[#6a11cb] to-[#2575fc]">
@@ -74,7 +63,7 @@ export default function ChatPage() {
       >
         🎤 Voice Mode
       </button>
-      {voiceMode && <VoiceMode onExit={() => setVoiceMode(false)} onMessage={handleNewMessage} />}
+      {voiceMode && <VoiceMode onExit={() => setVoiceMode(false)} handleSubmit={handleSubmit} handleInputChange={handleInputChange} input={input} messages={messages} />}
     </div>
   );
 }
