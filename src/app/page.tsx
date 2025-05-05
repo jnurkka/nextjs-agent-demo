@@ -11,6 +11,8 @@ export default function ChatPage() {
   // Determine if chat is empty
   const isEmpty = messages.length === 0;
 
+  const isVoiceModeEnabled = false;
+
   // When sending a text message, submit via SDK
   const handleFormSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +65,7 @@ export default function ChatPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l15.75-7.5-7.5 15.75-2.25-6.75-6.75-2.25z" />
               </svg>
             </button>
-            <button
+            {isVoiceModeEnabled && <button
               type="button"
               className="ml-2 p-2 rounded-full hover:bg-gray-100 transition text-black"
               onClick={() => setVoiceMode(true)}
@@ -71,7 +73,7 @@ export default function ChatPage() {
               disabled={voiceMode}
             >
               <span role="img" aria-label="Voice Mode">🎤</span>
-            </button>
+            </button>}
           </div>
         </form>
         <div className="w-full flex justify-center pb-4">
